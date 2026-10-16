@@ -129,13 +129,5 @@ Agents don't always apply every exclusion on Q2 (Auto-renew, Under Renewal). For
 | Sense agent misses Q2 | The context build probably hasn't finished. Check with `$cortex-sense resume PROCUREMENT check build` |
 | Streamlit app shows an error | Open it in Snowsight (`<DB>.APPS.PEAKFIT_PROCUREMENT_INSIGHTS`). It runs on the warehouse runtime and needs `streamlit=1.52.2` from the Snowflake channel |
 
-## What's honest to say on stage
-
-- Cortex Sense **extracts its own definitions** (`ontology_node` documents) from docs, apps and semantic views during the build. It doesn't read Business Ontology today; a `business_ontology` scope source exists but isn't indexed yet.
-- This repo hasn't verified that Cortex Agents read Business Ontology at runtime. Cortex Code does, through the business-ontology skill.
-- The query library on `@SENSE_SOURCES` is **seeded** analyst SQL; present it as such.
-- The Sense build has no "done" state yet. Build ahead of time and never build live.
-
----
 
 *Synthetic data. PeakFit Australia is fictional. Not an official Snowflake product or support channel.*
