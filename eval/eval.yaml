@@ -1,0 +1,181 @@
+domain: PROCUREMENT
+version_id: v-20261005-042459-03d98a
+previous_version: null
+generated_at: 2026-10-05T04:24:59Z
+updated_at: 2026-10-05T04:24:59Z
+
+judge_prompt: |
+  You are grading whether an ANSWER correctly answers a QUESTION, given the EXPECTED_ANSWER.
+  Return JSON: {"score": <0.0-1.0>, "correct": <bool>, "rationale": "<one line>"}.
+  Grade on semantic equivalence, not string match: a table's FQN, its bare name, or an
+  unambiguous naming phrase for the same table all count. Treat numeric values within ~2%
+  relative tolerance as correct, ignoring formatting/rounding.
+  When the EXPECTED_ANSWER contains a number, the number is the answer: naming the right
+  table, restating the formula, or supplying the query instead of the computed value scores
+  at most 0.3 however correct that formula or query is.
+  Give partial credit (0<score<1) for partially-correct answers; when several values are
+  asked for, score proportionally.
+  Score 0 for any value the ANSWER asserts that the context or query did not support.
+  An ANSWER that reports it could not determine the value scores 0 and no worse — never
+  score it below an answer that guessed.
+  correct = score >= 0.5.
+
+questions:
+  - id: q1
+    tier: answer
+    question: "What was PeakFit's total approved spend in FY2026, broken down by state?"
+    expected_answer: "FY2026 approved spend by state: VIC $50,570,553.46; NSW $47,494,913.78; QLD $38,557,185.43; WA $24,581,847.90; SA $21,026,484.08; ACT $6,390,167.30; total $188,621,151.95"
+    source: auto_from_qbe
+    derived_from: "verified query: total approved spend in FY2026 by state (PROCUREMENT_ANALYST)"
+    golden_sql: "SELECT pc.state, ROUND(SUM(po.amount),2) FROM {{DB}}.PUBLIC.PO_TRANSACTIONS po JOIN {{DB}}.PUBLIC.PROFIT_CENTRES pc ON pc.profit_centre_id = po.profit_centre_id WHERE po.status = 'Approved' AND po.financial_year = 'FY2026' GROUP BY 1 ORDER BY 2 DESC"
+    notes: "Golden computed by executing golden_sql on 2026-10-05 (build DB is a clone of the demo DB)"
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q2
+    tier: answer
+    question: "As at 31 October 2026, which at-risk suppliers have active contracts expiring in the next 90 days, and what was their FY2026 approved spend?"
+    expected_answer: "Exactly four suppliers: SUP014 GymCare Technical Services $1,847,517.47 (at risk via incidents, expires 2026-12-13); SUP040 CoolBreeze HVAC Solutions $1,438,407.17 (2026-12-22); SUP015 Precision Equipment Servicing $1,117,802.23 (2026-12-14); SUP026 Local Pulse Media $1,117,194.08 (2027-01-12); total $5,520,920.95. Listing any other supplier (e.g. SUP008, SUP030, SUP050, SUP032, SUP022, SUP034, SUP037) is wrong."
+    source: auto_from_definition
+    derived_from: "Supplier ontology node: At-Risk Renewal Watchlist, rules (a)/(b), expiring-soon definition"
+    golden_sql: "WITH SCORES AS (SELECT SUPPLIER_ID, ASSESSMENT_PERIOD, AVG(OVERALL_SCORE) SC FROM {{DB}}.PUBLIC.SUPPLIER_ASSESSMENTS WHERE ASSESSMENT_PERIOD IN ('H1-FY2026','H2-FY2026') GROUP BY 1,2), RULE_A AS (SELECT SUPPLIER_ID FROM SCORES GROUP BY 1 HAVING COUNT(*)=2 AND MAX(SC)<3.00), RULE_B AS (SELECT P.SUPPLIER_ID FROM {{DB}}.PUBLIC.INCIDENT_LOG I JOIN {{DB}}.PUBLIC.PO_TRANSACTIONS P ON P.PO_ID=I.RELATED_PO_ID WHERE I.SEVERITY IN ('High','Critical') AND I.INCIDENT_DATE BETWEEN '2026-05-01' AND '2026-10-31' GROUP BY 1 HAVING COUNT(*)>=3), AT_RISK AS (SELECT SUPPLIER_ID FROM RULE_A UNION SELECT SUPPLIER_ID FROM RULE_B), EXPIRING AS (SELECT SUPPLIER_ID, MIN(END_DATE) NEXT_EXPIRY FROM {{DB}}.PUBLIC.CONTRACTS WHERE CONTRACT_STATUS='Active' AND RENEWAL_TYPE<>'Auto-renew' AND END_DATE BETWEEN '2026-10-31' AND '2027-01-29' GROUP BY 1), SPEND AS (SELECT SUPPLIER_ID, SUM(AMOUNT) SP FROM {{DB}}.PUBLIC.PO_TRANSACTIONS WHERE STATUS='Approved' AND FINANCIAL_YEAR='FY2026' GROUP BY 1) SELECT S.SUPPLIER_ID, S.SUPPLIER_NAME, E.NEXT_EXPIRY, ROUND(SP.SP,2) FROM AT_RISK JOIN EXPIRING E USING (SUPPLIER_ID) JOIN {{DB}}.PUBLIC.SUPPLIERS S USING (SUPPLIER_ID) LEFT JOIN SPEND SP USING (SUPPLIER_ID) ORDER BY 4 DESC"
+    notes: "Hero question Q2. Golden matches sql/06_validation.sql; computed 2026-10-05"
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q3
+    tier: answer
+    question: "As at 31 October 2026, which suppliers are at risk because of sustained poor performance in their supplier assessments?"
+    expected_answer: "Six suppliers, each averaging below 3.00 in both H1-FY2026 and H2-FY2026: SUP008 Westside Maintenance Solutions (2.81/2.69), SUP015 Precision Equipment Servicing (2.79/2.64), SUP026 Local Pulse Media (2.71/2.85), SUP030 Vigilant Alarm Monitoring (2.76/2.62), SUP040 CoolBreeze HVAC Solutions (2.88/2.59), SUP050 ProteinWorks Wholesale (2.66/2.72)"
+    source: auto_from_definition
+    derived_from: "PF-PROC-SMP-004 rule (a); period ordering rule"
+    golden_sql: "WITH s AS (SELECT supplier_id, assessment_period, AVG(overall_score) sc FROM {{DB}}.PUBLIC.SUPPLIER_ASSESSMENTS WHERE assessment_period IN ('H1-FY2026','H2-FY2026') GROUP BY 1,2) SELECT supplier_id FROM s GROUP BY 1 HAVING COUNT(*)=2 AND MAX(sc)<3.00 ORDER BY 1"
+    notes: "Decoys: SUP032 (alphabetical period sort), SUP037 (latest period only), SUP022 (Not Recommended). Computed 2026-10-05"
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q4
+    tier: answer
+    question: "As at 31 October 2026, which suppliers have had three or more serious incidents attributed to them in the last six months?"
+    expected_answer: "Only SUP014 GymCare Technical Services, with 4 PO-linked High/Critical incidents between 2026-05-01 and 2026-10-31. No other supplier has more than 2; SUP034's warranty/asset-linked incidents do not count."
+    source: auto_from_definition
+    derived_from: "PF-PROC-SMP-004 rule (b); incident attribution via RELATED_PO_ID"
+    golden_sql: "SELECT po.supplier_id, COUNT(*) n FROM {{DB}}.PUBLIC.INCIDENT_LOG i JOIN {{DB}}.PUBLIC.PO_TRANSACTIONS po ON po.po_id=i.related_po_id WHERE i.severity IN ('High','Critical') AND i.incident_date BETWEEN '2026-05-01' AND '2026-10-31' GROUP BY 1 HAVING COUNT(*)>=3"
+    notes: "Computed 2026-10-05"
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q5
+    tier: answer
+    question: "As at 31 October 2026, how many supplier contracts are expiring soon, and what is their combined contract value?"
+    expected_answer: "66 contracts (across 38 suppliers) with a combined contract value of $7,098,500.00 — Active, non-Auto-renew contracts ending 2026-10-31 to 2027-01-29"
+    source: auto_from_definition
+    derived_from: "contract_renewal_process.md expiring-soon definition"
+    golden_sql: "SELECT COUNT(*), COUNT(DISTINCT supplier_id), ROUND(SUM(contract_value),2) FROM {{DB}}.PUBLIC.CONTRACTS WHERE contract_status='Active' AND renewal_type<>'Auto-renew' AND end_date BETWEEN '2026-10-31' AND '2027-01-29'"
+    notes: "Computed 2026-10-05"
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q6
+    tier: answer
+    question: "Which buyers show the most potential PO-splitting patterns in FY2026?"
+    expected_answer: "Four buyers stand out: Oliver Singh (BUY020), Thomas Nguyen (BUY026), Ryan Tran (BUY012) and Marcus Rossi (BUY008), with 18, 10, 8 and 6 qualifying PO pairs respectively; every other buyer has 2 or fewer"
+    source: auto_from_definition
+    derived_from: "PF-FIN-POL-011 s3 split-PO definition"
+    golden_sql: "WITH a AS (SELECT po_id, buyer_id, supplier_id, spend_code_id, po_date, amount FROM {{DB}}.PUBLIC.PO_TRANSACTIONS WHERE status='Approved' AND amount BETWEEN 4000 AND 5000 AND financial_year='FY2026') SELECT x.buyer_id, COUNT(*) pairs FROM a x JOIN a y ON x.buyer_id=y.buyer_id AND x.supplier_id=y.supplier_id AND x.spend_code_id=y.spend_code_id AND x.po_id<y.po_id AND ABS(DATEDIFF(day,x.po_date,y.po_date))<=3 AND x.amount+y.amount>5000 GROUP BY 1 ORDER BY 2 DESC"
+    notes: "Graded on the four buyer identities; pair counts depend on counting method. Computed 2026-10-05"
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q7
+    tier: answer
+    question: "Which centre budget lines had a material overrun in FY2026?"
+    expected_answer: "Four lines (overspend > 10% and > $50K): PeakFit Perth CBD (WA) Equipment Servicing & Minor Equipment +$236,645.62 (26%); PeakFit Southbank (VIC) IT Support & Managed Services +$209,837.32 (17%); PeakFit Parramatta (NSW) IT Support & Managed Services +$146,998.44 (13%); PeakFit Surfers Paradise (QLD) Utilities +$127,181.34 (21%)"
+    source: auto_from_definition
+    derived_from: "budget_governance.md material overrun definition"
+    golden_sql: "SELECT pc.centre_name, g.gl_account_name, ROUND(v.actual_spend-v.budget_amount,2) FROM {{DB}}.PUBLIC.BUDGET_ACTUALS_VW v JOIN {{DB}}.PUBLIC.PROFIT_CENTRES pc USING (profit_centre_id) JOIN {{DB}}.PUBLIC.GL_HIERARCHY g USING (gl_account_id) WHERE v.financial_year='FY2026' AND v.actual_spend-v.budget_amount>50000 AND v.actual_spend>1.10*v.budget_amount ORDER BY 3 DESC"
+    notes: "Computed 2026-10-05"
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q8
+    tier: answer
+    question: "In FY2026, how many suppliers fell into tail spend, and what share of approved spend did they account for?"
+    expected_answer: "28 tail suppliers (22 core), accounting for $34,605,822.21, or 18.35% of FY2026 approved spend"
+    source: auto_from_definition
+    derived_from: "glossary.md tail spend (80% cumulative threshold, crossing supplier is core)"
+    golden_sql: "WITH sp AS (SELECT supplier_id, SUM(amount) s FROM {{DB}}.PUBLIC.PO_TRANSACTIONS WHERE status='Approved' AND financial_year='FY2026' GROUP BY 1), c AS (SELECT supplier_id, s, SUM(s) OVER (ORDER BY s DESC, supplier_id ROWS UNBOUNDED PRECEDING) cum, SUM(s) OVER () tot FROM sp), k AS (SELECT *, COALESCE(LAG(cum) OVER (ORDER BY s DESC, supplier_id),0) prev FROM c) SELECT IFF(prev<0.8*tot,'core','tail') seg, COUNT(*), ROUND(SUM(s),2), ROUND(100*SUM(s)/MAX(tot),2) FROM k GROUP BY 1"
+    notes: "Computed 2026-10-05"
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q9
+    tier: answer
+    question: "As at 31 October 2026, which supplier has the highest Supplier Risk Score, and how many suppliers are in the High risk band?"
+    expected_answer: "SUP014 GymCare Technical Services has the highest score at 44.3. Four suppliers are in the High band (score >= 40): SUP014 (44.3), SUP013 FitTech Service & Repair (42.6), SUP001 SparkleClean Commercial (41.8), SUP030 Vigilant Alarm Monitoring (41.6)"
+    source: auto_from_dashboard
+    derived_from: "PeakFit Procurement Insights app risk_score() and RISK_BANDS"
+    golden_sql: "WITH perf AS (SELECT supplier_id, AVG(overall_score) a FROM {{DB}}.PUBLIC.SUPPLIER_ASSESSMENTS WHERE assessment_period IN ('H1-FY2026','H2-FY2026') GROUP BY 1), inv AS (SELECT supplier_id, SUM(invoice_amount) invd, SUM(IFF(payment_status='Overdue',invoice_amount,0)) od FROM {{DB}}.PUBLIC.PO_INVOICES WHERE invoice_date > DATEADD(month,-12,'2026-10-31'::DATE) AND invoice_date <= '2026-10-31'::DATE GROUP BY 1), inc AS (SELECT po.supplier_id, COUNT(*) n FROM {{DB}}.PUBLIC.INCIDENT_LOG i JOIN {{DB}}.PUBLIC.PO_TRANSACTIONS po ON po.po_id=i.related_po_id WHERE i.severity IN ('High','Critical') AND i.incident_date > DATEADD(month,-12,'2026-10-31'::DATE) AND i.incident_date <= '2026-10-31'::DATE GROUP BY 1) SELECT s.supplier_id, ROUND(100*(0.4*(5-COALESCE(p.a,3))/4 + 0.3*COALESCE(inv.od/NULLIF(inv.invd,0),0) + 0.3*LEAST(COALESCE(inc.n,0)/5,1)),1) risk FROM {{DB}}.PUBLIC.SUPPLIERS s LEFT JOIN perf p USING (supplier_id) LEFT JOIN inv USING (supplier_id) LEFT JOIN inc USING (supplier_id) ORDER BY risk DESC"
+    notes: "Mirrors load_supplier_scorecard() + risk_score() in streamlit_app.py. Computed 2026-10-05"
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q10
+    tier: answer
+    question: "As at 31 October 2026, which suppliers are watch items (not yet at risk) based on their recent assessment scores?"
+    expected_answer: "Two suppliers below 3.00 in exactly one of the two most recent completed periods: SUP032 AquaFlow Water Services (H1-FY2026 3.81, H2-FY2026 2.81) and SUP037 Lifeline Pool Plant Services (3.24, 2.68)"
+    source: auto_from_definition
+    derived_from: "Supplier ontology node: Watch Item segment; period ordering rule"
+    golden_sql: "WITH s AS (SELECT supplier_id, assessment_period, AVG(overall_score) sc FROM {{DB}}.PUBLIC.SUPPLIER_ASSESSMENTS WHERE assessment_period IN ('H1-FY2026','H2-FY2026') GROUP BY 1,2) SELECT supplier_id FROM s GROUP BY 1 HAVING COUNT_IF(sc<3.00)=1"
+    notes: "Computed 2026-10-05"
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q11
+    tier: answer
+    question: "What was PeakFit's total headcount and FTE across all centres in October 2026?"
+    expected_answer: "691 headcount and 443.4 FTE for October 2026 (a single monthly snapshot; not summed across months)"
+    source: auto_from_sv
+    derived_from: "FINANCE_WORKFORCE_ANALYST semi-additive headcount/FTE metrics"
+    golden_sql: "SELECT SUM(headcount), ROUND(SUM(fte_equivalent),1) FROM {{DB}}.PUBLIC.STAFF_ROSTER WHERE month='2026-10-01'"
+    notes: "Computed 2026-10-05"
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q12
+    tier: answer
+    question: "How many centre budget lines were Over Budget in FY2026, and what was the total overspend on those lines?"
+    expected_answer: "15 budget lines were Over Budget (actual > 110% of budget), with total overspend of $801,428.79 on those lines"
+    source: auto_from_sv
+    derived_from: "BUDGET_ACTUALS_VW BUDGET_STATUS bands; budget_governance.md sign convention"
+    golden_sql: "SELECT COUNT(*), ROUND(SUM(actual_spend-budget_amount),2) FROM {{DB}}.PUBLIC.BUDGET_ACTUALS_VW WHERE financial_year='FY2026' AND budget_status='Over Budget'"
+    notes: "Computed 2026-10-05"
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q13
+    tier: retrieval
+    question: "Which table holds supplier performance assessment scores?"
+    expected_answer: "{{DB}}.PUBLIC.SUPPLIER_ASSESSMENTS"
+    source: auto_from_table_entity
+    notes: ""
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q14
+    tier: retrieval
+    question: "Where is the PeakFit Supplier Risk Score calculated?"
+    expected_answer: "In the PeakFit Procurement Insights Streamlit app ({{DB}}.APPS, streamlit_app.py risk_score()), not in any table or semantic view"
+    source: auto_from_dashboard
+    notes: ""
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }
+
+  - id: q15
+    tier: retrieval
+    question: "What are PeakFit's purchase order approval thresholds?"
+    expected_answer: "Self up to $5,000; Manager $5,000.01-$50,000; Executive $50,000.01-$250,000; LT Panel above $250,000 (AUD ex GST)"
+    source: auto_from_definition
+    notes: ""
+    user_grade: confirmed
+    annotations: { origin: generated, reviewed: true, answer_verified: true }

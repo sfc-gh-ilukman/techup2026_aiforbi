@@ -1,0 +1,272 @@
+{
+  "_comment": "PeakFit procurement Business Ontology. scripts/lab.py turns this file into .build/sql/40_ontology.sql (draft -> approve -> relationships -> representations -> read-back). Definitions are taken from the business documents in docs/, cited by document ID. Edit here, then re-run: python3 scripts/lab.py run 40_ontology",
+  "domain": {
+    "name": "{{ONTOLOGY_DOMAIN}}",
+    "description": "PeakFit Australia procurement, supplier management and budget governance. Governs what the business means by spend, at-risk suppliers, expiring contracts and budget overruns, and links each concept to the tables and semantic views in {{DB}}."
+  },
+  "nodes": [
+    {
+      "name": "Supplier",
+      "itemKind": "ENTITY",
+      "synonyms": ["Vendor"],
+      "description": "An external business PeakFit buys goods or services from (PF-PROC-GLS-001). 50 suppliers in 14 categories; category spend is grouped by the supplier's category, never by spend code.",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.SUPPLIERS", "objectName": "SUPPLIERS"},
+        {"refType": "SEMANTIC_VIEW", "fqn": "{{DB}}.ANALYTICS.PROCUREMENT_ANALYST", "subObjectType": "ENTITY", "subObjectName": "SUPPLIERS"}
+      ]
+    },
+    {
+      "name": "Purchase Order",
+      "itemKind": "ENTITY",
+      "synonyms": ["PO"],
+      "description": "A commitment to buy from a supplier, raised by a buyer and charged to one centre, GL account and spend code. Approved at the level its value requires: Self up to $5,000, Manager to $50,000, Executive to $250,000, LT Panel above (PF-FIN-POL-011). Only Approved POs are spend.",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.PO_TRANSACTIONS", "objectName": "PO_TRANSACTIONS"},
+        {"refType": "SEMANTIC_VIEW", "fqn": "{{DB}}.ANALYTICS.PROCUREMENT_ANALYST", "subObjectType": "ENTITY", "subObjectName": "PO_TRANSACTIONS"}
+      ]
+    },
+    {
+      "name": "Supplier Invoice",
+      "itemKind": "ENTITY",
+      "synonyms": ["Invoice"],
+      "description": "A supplier's bill against an Approved purchase order. Invoiced value is not spend: spend is measured at PO approval, invoices track what has been billed and paid.",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.PO_INVOICES", "objectName": "PO_INVOICES"}
+      ]
+    },
+    {
+      "name": "Contract",
+      "itemKind": "ENTITY",
+      "synonyms": ["Supplier Contract"],
+      "description": "A supplier contract term with a status (Active, Under Renewal, Expired), start and end dates and a renewal type (PF-PROC-CRP-002). Not in either semantic view.",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.CONTRACTS", "objectName": "CONTRACTS"}
+      ]
+    },
+    {
+      "name": "Buyer",
+      "itemKind": "ENTITY",
+      "synonyms": ["Requisitioner"],
+      "description": "A PeakFit staff member who raises purchase orders, with a home centre.",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.BUYERS", "objectName": "BUYERS"}
+      ]
+    },
+    {
+      "name": "Fitness Centre",
+      "itemKind": "ENTITY",
+      "synonyms": ["Centre", "Club", "Gym", "Cost Centre", "Profit Centre"],
+      "description": "One of 23 PeakFit fitness centres across NSW, VIC, QLD, WA, SA and ACT (PF-PROC-GLS-001). Purchase orders, budgets and staff are all held by centre.",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.PROFIT_CENTRES", "objectName": "PROFIT_CENTRES"}
+      ]
+    },
+    {
+      "name": "Spend Code",
+      "itemKind": "ENTITY",
+      "synonyms": [],
+      "description": "Granular purchasing code on each purchase order. Spend codes are not used for category reporting; category spend uses the supplier's category (PF-PROC-GLS-001).",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.SPEND_CODES", "objectName": "SPEND_CODES"}
+      ]
+    },
+    {
+      "name": "GL Account",
+      "itemKind": "ENTITY",
+      "synonyms": ["General Ledger Account"],
+      "description": "General ledger account that purchase orders and budgets are charged to.",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.GL_HIERARCHY", "objectName": "GL_HIERARCHY"}
+      ]
+    },
+    {
+      "name": "Budget Line",
+      "itemKind": "ENTITY",
+      "synonyms": ["Budget"],
+      "description": "Annual budget for one centre and GL account in a financial year, approved in mid-June before the year starts (PF-FIN-STD-006).",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.BUDGETS", "objectName": "BUDGETS"},
+        {"refType": "VIEW", "fqn": "{{DB}}.ANALYTICS.BUDGET_ACTUALS_VW", "objectName": "BUDGET_ACTUALS_VW"}
+      ]
+    },
+    {
+      "name": "Supplier Assessment",
+      "itemKind": "ENTITY",
+      "synonyms": ["Performance Review"],
+      "description": "Half-yearly review of a supplier by one centre, scoring quality, timeliness, communication and value for money from 1.00 to 5.00; the overall score is their mean. A centre assesses a supplier only when it raised at least eight Approved POs with it in the half (PF-PROC-SMP-004). The assessor's recommendation is a commercial view and never decides at-risk status.",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.SUPPLIER_ASSESSMENTS", "objectName": "SUPPLIER_ASSESSMENTS"}
+      ]
+    },
+    {
+      "name": "Incident",
+      "itemKind": "ENTITY",
+      "synonyms": ["Operational Incident"],
+      "description": "An operational incident logged by a centre (maintenance, OH&S, customer, security, IT) with a severity. An incident is attributed to a supplier only through its related purchase order; asset-only incidents are not supplier incidents, even under the supplier's warranty (PF-PROC-SMP-004 4.1).",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.INCIDENT_LOG", "objectName": "INCIDENT_LOG"}
+      ]
+    },
+    {
+      "name": "Asset",
+      "itemKind": "ENTITY",
+      "synonyms": ["Equipment"],
+      "description": "Equipment or fitout held at a centre, optionally under a supplier warranty. Warranty claims are managed by Facilities and are separate from supplier performance.",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.ASSET_REGISTER", "objectName": "ASSET_REGISTER"}
+      ]
+    },
+    {
+      "name": "Financial Year",
+      "itemKind": "TERM",
+      "synonyms": ["FY"],
+      "description": "1 July to 30 June. FY2026 = 1 July 2025 to 30 June 2026, the latest complete financial year as at 31 October 2026. H1 = July to December, H2 = January to June (PF-PROC-GLS-001).",
+      "representations": [
+        {"refType": "COLUMN", "fqn": "{{DB}}.PUBLIC.PO_TRANSACTIONS", "dimensionName": "FINANCIAL_YEAR"}
+      ]
+    },
+    {
+      "name": "Total Spend",
+      "itemKind": "METRIC",
+      "synonyms": ["Spend", "Approved Spend"],
+      "description": "The value of Approved purchase orders, excluding GST. Pending and Rejected purchase orders are never spend (PF-PROC-GLS-001, PF-FIN-POL-011).",
+      "formula": "SUM(AMOUNT) WHERE STATUS = 'Approved' GROUP BY FINANCIAL_YEAR",
+      "exclusions": ["STATUS = 'Pending'", "STATUS = 'Rejected'"],
+      "formulaSource": "{{DB}}.PUBLIC.PO_TRANSACTIONS",
+      "representations": [
+        {"refType": "SEMANTIC_VIEW", "fqn": "{{DB}}.ANALYTICS.PROCUREMENT_ANALYST", "subObjectType": "METRIC", "entityQualifier": "PO_TRANSACTIONS", "subObjectName": "TOTAL_SPEND"}
+      ]
+    },
+    {
+      "name": "Invoiced Amount",
+      "itemKind": "METRIC",
+      "synonyms": ["Total Invoiced"],
+      "description": "Value of supplier invoices raised against Approved purchase orders. Not the same as spend, which is measured when the PO is approved.",
+      "formula": "SUM(INVOICE_AMOUNT) GROUP BY INVOICE_DATE",
+      "formulaSource": "{{DB}}.PUBLIC.PO_INVOICES",
+      "representations": [
+        {"refType": "SEMANTIC_VIEW", "fqn": "{{DB}}.ANALYTICS.PROCUREMENT_ANALYST", "subObjectType": "METRIC", "entityQualifier": "PO_INVOICES", "subObjectName": "TOTAL_INVOICED"}
+      ]
+    },
+    {
+      "name": "Maverick Spend",
+      "itemKind": "METRIC",
+      "synonyms": ["Off-Contract Spend"],
+      "description": "Approved spend with a supplier that had no contract in force on the PO date, meaning no contract of any status whose start and end dates cover the PO date (PF-PROC-GLS-001).",
+      "formula": "SUM(AMOUNT) WHERE STATUS = 'Approved' AND NOT EXISTS (contract for the supplier with START_DATE <= PO_DATE AND END_DATE >= PO_DATE) GROUP BY FINANCIAL_YEAR",
+      "formulaSource": "{{DB}}.PUBLIC.PO_TRANSACTIONS",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.PO_TRANSACTIONS", "objectName": "PO_TRANSACTIONS"},
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.CONTRACTS", "objectName": "CONTRACTS"}
+      ]
+    },
+    {
+      "name": "Budget Variance",
+      "itemKind": "METRIC",
+      "synonyms": ["Variance"],
+      "description": "Budget minus actual spend for a centre, GL account and financial year. Negative means overspent. Variance % = variance / budget (PF-FIN-STD-006).",
+      "formula": "SUM(BUDGET_AMOUNT) - SUM(ACTUAL_SPEND) GROUP BY PROFIT_CENTRE_ID, GL_ACCOUNT_ID, FINANCIAL_YEAR",
+      "formulaSource": "{{DB}}.ANALYTICS.BUDGET_ACTUALS_VW",
+      "representations": [
+        {"refType": "SEMANTIC_VIEW", "fqn": "{{DB}}.ANALYTICS.FINANCE_WORKFORCE_ANALYST", "subObjectType": "METRIC", "entityQualifier": "BUDGET_ACTUALS", "subObjectName": "TOTAL_VARIANCE"},
+        {"refType": "COLUMN", "fqn": "{{DB}}.ANALYTICS.BUDGET_ACTUALS_VW", "dimensionName": "VARIANCE"}
+      ]
+    },
+    {
+      "name": "Supplier Performance Score",
+      "itemKind": "METRIC",
+      "synonyms": ["Supplier Score"],
+      "description": "For one supplier and half-year period, the average of the overall scores from every centre that assessed the supplier. Order periods by financial year then half, never as text (H2-FY2025 sorts after H1-FY2026 alphabetically). Only completed periods count (PF-PROC-SMP-004 Section 3).",
+      "formula": "AVG(OVERALL_SCORE) GROUP BY SUPPLIER_ID, ASSESSMENT_PERIOD",
+      "formulaSource": "{{DB}}.PUBLIC.SUPPLIER_ASSESSMENTS",
+      "representations": [
+        {"refType": "COLUMN", "fqn": "{{DB}}.PUBLIC.SUPPLIER_ASSESSMENTS", "dimensionName": "OVERALL_SCORE"}
+      ]
+    },
+    {
+      "name": "Supplier Risk Score",
+      "itemKind": "METRIC",
+      "synonyms": ["Risk Score"],
+      "description": "0-100 dashboard indicator on the Supplier Scorecard of the PeakFit Procurement Insights app; higher is riskier. Combines assessment performance over the last two completed half-years (40%), the overdue share of invoiced value in the last 12 months (30%) and High/Critical PO-linked incidents in the last 12 months, capped at 5 (30%). Suppliers with no recent assessments score a neutral 3.00. Bands: High >= 40, Elevated >= 25, Low < 25. It is NOT the at-risk definition.",
+      "formula": "100 * (0.40 * (5 - COALESCE(AVG_OVERALL_SCORE, 3.0)) / 4 + 0.30 * OVERDUE_12M / NULLIF(INVOICED_12M, 0) + 0.30 * LEAST(SERIOUS_INCIDENTS_12M / 5, 1)) GROUP BY SUPPLIER_ID",
+      "formulaSource": "{{DB}}.APPS.PEAKFIT_PROCUREMENT_INSIGHTS",
+      "representations": [
+        {"refType": "DASHBOARD", "fqn": "{{DB}}.APPS.PEAKFIT_PROCUREMENT_INSIGHTS", "objectName": "PEAKFIT_PROCUREMENT_INSIGHTS"}
+      ]
+    },
+    {
+      "name": "At-Risk Supplier",
+      "itemKind": "TERM",
+      "synonyms": ["Supplier At Risk"],
+      "description": "A supplier is at risk when either (a) its Supplier Performance Score is below 3.00 in EACH of the two most recent completed periods (below 3.00 in only one is a watch item), or (b) three or more High or Critical incidents attributed to it through purchase orders occurred in the last six months (as at 31 Oct 2026: 1 May to 31 Oct 2026). The assessor recommendation and compliance status do not count. An at-risk supplier needs a remediation plan within 30 days and its contracts cannot be renewed without Head of Procurement sign-off (PF-PROC-SMP-004 Sections 4-5).",
+      "representations": []
+    },
+    {
+      "name": "Expiring-Soon Contract",
+      "itemKind": "TERM",
+      "synonyms": ["Expiring Soon"],
+      "description": "A contract that, at the review date, is Active, ends within the next 90 days (review date to review date + 90 days inclusive) and is not Auto-renew. Under Renewal contracts are excluded. As at 31 October 2026 the window is 31 Oct 2026 to 29 Jan 2027 (PF-PROC-CRP-002 Section 3).",
+      "representations": [
+        {"refType": "COLUMN", "fqn": "{{DB}}.PUBLIC.CONTRACTS", "dimensionName": "END_DATE"},
+        {"refType": "COLUMN", "fqn": "{{DB}}.PUBLIC.CONTRACTS", "dimensionName": "RENEWAL_TYPE"}
+      ]
+    },
+    {
+      "name": "At-Risk Renewal Watchlist",
+      "itemKind": "TERM",
+      "synonyms": ["Renewal Watchlist"],
+      "description": "Monthly executive report of every supplier that is an At-Risk Supplier AND has at least one Expiring-Soon Contract, showing the at-risk reason, the next expiring end date and Total Spend for the latest complete financial year (PF-PROC-CRP-002 Section 6). As at 31 Oct 2026 it lists SUP014, SUP040, SUP015 and SUP026.",
+      "representations": []
+    },
+    {
+      "name": "PO Splitting",
+      "itemKind": "TERM",
+      "synonyms": ["Split PO", "Split Purchase Order"],
+      "description": "Breaking one purchase into several smaller POs to stay within the Self approval limit; a policy breach. Flagged when two or more Approved POs from the same buyer to the same supplier on the same spend code are raised within 3 days, each between $4,000 and $5,000, with a combined value over $5,000 (PF-FIN-POL-011 Section 3).",
+      "representations": [
+        {"refType": "TABLE", "fqn": "{{DB}}.PUBLIC.PO_TRANSACTIONS", "objectName": "PO_TRANSACTIONS"}
+      ]
+    },
+    {
+      "name": "Material Overrun",
+      "itemKind": "TERM",
+      "synonyms": [],
+      "description": "A budget line whose actual spend exceeds budget by more than 10% of the budget AND by more than $50,000; both conditions must hold. Not assessed for in-progress years (PF-FIN-STD-006 Section 5).",
+      "representations": [
+        {"refType": "VIEW", "fqn": "{{DB}}.ANALYTICS.BUDGET_ACTUALS_VW", "objectName": "BUDGET_ACTUALS_VW"}
+      ]
+    }
+  ],
+  "relationships": [
+    ["Total Spend", "Purchase Order", "MEASURES"],
+    ["Invoiced Amount", "Supplier Invoice", "MEASURES"],
+    ["Purchase Order", "Supplier Invoice", "HAS_PART"],
+    ["Spend Code", "Purchase Order", "CLASSIFIES"],
+    ["GL Account", "Purchase Order", "CLASSIFIES"],
+    ["GL Account", "Budget Line", "CLASSIFIES"],
+    ["Fitness Centre", "Purchase Order", "CLASSIFIES"],
+    ["Fitness Centre", "Budget Variance", "SCOPES"],
+    ["Financial Year", "Total Spend", "SCOPES"],
+    ["Financial Year", "Budget Variance", "SCOPES"],
+    ["Total Spend", "Maverick Spend", "HAS_VARIANT"],
+    ["Total Spend", "Budget Variance", "DERIVES"],
+    ["Budget Variance", "Budget Line", "MEASURES"],
+    ["Budget Variance", "Material Overrun", "DERIVES"],
+    ["Supplier Assessment", "Supplier Performance Score", "DERIVES"],
+    ["Supplier Performance Score", "Supplier", "MEASURES"],
+    ["Supplier Performance Score", "Supplier Risk Score", "DERIVES"],
+    ["Supplier Risk Score", "Supplier", "MEASURES"],
+    ["Supplier", "At-Risk Supplier", "HAS_VARIANT"],
+    ["Supplier Performance Score", "At-Risk Supplier", "DERIVES"],
+    ["Incident", "At-Risk Supplier", "DERIVES"],
+    ["Contract", "Expiring-Soon Contract", "HAS_VARIANT"],
+    ["At-Risk Renewal Watchlist", "At-Risk Supplier", "HAS_PART"],
+    ["At-Risk Renewal Watchlist", "Expiring-Soon Contract", "HAS_PART"],
+    ["PO Splitting", "Purchase Order", "APPLIES_TO"],
+    ["Supplier", "Purchase Order", "RELATED_TO"],
+    ["Supplier", "Contract", "RELATED_TO"],
+    ["Buyer", "Purchase Order", "RELATED_TO"],
+    ["Incident", "Purchase Order", "RELATED_TO"],
+    ["Asset", "Incident", "RELATED_TO"]
+  ]
+}

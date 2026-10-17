@@ -1,0 +1,7 @@
+name: peakfit_procurement_insights
+channels:
+  - snowflake
+dependencies:
+  - streamlit=1.52.2
+  - altair
+  - pandas

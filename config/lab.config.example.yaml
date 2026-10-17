@@ -1,0 +1,26 @@
+# PeakFit Cortex Sense lab: configuration
+#
+# Copy this file to config/lab.config.yaml and edit it. The peakfit-lab skill
+# does this for you on first run. config/lab.config.yaml is gitignored.
+#
+# Every object the lab creates is named from PREFIX, so several people can run
+# the lab in one shared demo account without clashing.
+
+# Name of the Snowflake CLI connection (~/.snowflake/config.toml or
+# connections.toml) that `snow sql -c <connection>` should use.
+connection: default
+
+# Role that creates and owns every lab object. It needs:
+#   - CREATE DATABASE and CREATE WAREHOUSE on the account
+#   - Cortex Sense and Business Ontology access (enabled on the account)
+#   - IMPORTED PRIVILEGES on the SNOWFLAKE database, so Cortex Sense can mine
+#     query history (optional, but the query-history demo depends on it)
+# On most SE demo accounts ACCOUNTADMIN or SYSADMIN works.
+role: SYSADMIN
+
+# Prefix for every object name. Upper case, letters/digits/underscore only.
+#   <PREFIX>_SENSE_DEMO   demo database (what Cortex Sense indexes)
+#   <PREFIX>_SENSE_BUILD  temporary build database (dropped after setup)
+#   <PREFIX>_SENSE_WH     XS warehouse
+#   <PREFIX>_PROCUREMENT  Business Ontology domain
+prefix: PEAKFIT

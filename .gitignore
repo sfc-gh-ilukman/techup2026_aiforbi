@@ -1,0 +1,9 @@
+# Your settings (copy of config/lab.config.example.yaml)
+config/lab.config.yaml
+
+# Rendered templates and logs
+.build/
+
+__pycache__/
+*.pyc
+.DS_Store

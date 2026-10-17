@@ -1,0 +1,48 @@
+business_domain: PROCUREMENT
+status: active
+warehouse: {{WH}}
+sources:
+- name: catalog_objects
+  type: snowflake_metadata
+  enabled: true
+  rules:
+  - type: pattern
+    pattern: {{DB}}.PUBLIC.*
+    est_tables: 15
+    user_prompt: All PeakFit base tables (curated procurement plus the uncurated long tail)
+  - type: pattern
+    pattern: {{DB}}.ANALYTICS.*
+    est_tables: 1
+    user_prompt: BUDGET_ACTUALS_VW and the analytics layer
+- name: semantic_views
+  type: snowflake_content
+  enabled: true
+  rules:
+  - type: pattern
+    pattern: {{DB}}.ANALYTICS.PROCUREMENT_ANALYST
+    user_prompt: Curated procurement semantic view
+  - type: pattern
+    pattern: {{DB}}.ANALYTICS.FINANCE_WORKFORCE_ANALYST
+    user_prompt: Curated finance and workforce semantic view
+- name: streamlit_apps
+  type: snowflake_content
+  enabled: true
+  rules:
+  - type: file
+    stage: {{DB}}.APPS.STREAMLIT_SRC
+    file_pattern: ''
+    user_prompt: PeakFit Procurement Insights app (holds the Supplier Risk Score formula)
+- name: stage_files
+  type: snowflake_content
+  enabled: true
+  rules:
+  - type: file
+    stage: {{DB}}.RAW.DOCS
+    file_pattern: ''
+    user_prompt: Business process documents (at-risk supplier, approvals, contract renewal, budget governance, glossary)
+  - type: file
+    stage: {{DB}}.CORTEX_SENSE.SENSE_SOURCES
+    file_pattern: analyst_query_library.md
+    user_prompt: Reviewed analyst query library (frequent SQL patterns)
+additional_instructions: []
+in_account_instructions: []

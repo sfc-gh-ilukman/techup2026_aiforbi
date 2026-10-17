@@ -20,8 +20,8 @@ A complete, self-contained demo of **Cortex Sense** and **Business Ontology** fo
 ## Quickstart
 
 ```bash
-git clone https://github.com/sfc-gh-ilukman/peakfit-cortex-sense-lab.git
-cd peakfit-cortex-sense-lab
+git clone https://github.com/sfc-gh-ilukman/techup2026_aiforbi.git
+cd techup2026_aiforbi
 coco .        # or open the folder in Cortex Code Desktop / run `cortex` here
 ```
 
